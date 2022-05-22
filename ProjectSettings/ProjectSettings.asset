@@ -527,9 +527,9 @@ PlayerSettings:
   enableInternalProfiler: 0
   logObjCUncaughtExceptions: 1
   enableCrashReportAPI: 0
-  cameraUsageDescription: 
-  locationUsageDescription: 
-  microphoneUsageDescription: 
+  cameraUsageDescription: For AR
+  locationUsageDescription: For AR
+  microphoneUsageDescription: For AR
   bluetoothUsageDescription: 
   switchNMETAOverride: 
   switchNetLibKey: 
