@@ -6,6 +6,7 @@ using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
 using Google.XR.ARCoreExtensions;
 using Google.XR.ARCoreExtensions.Samples.Geospatial;
+using Cysharp.Threading.Tasks;
 
 /// <summary>
 /// Controller for Geospatial sample.
@@ -13,213 +14,77 @@ using Google.XR.ARCoreExtensions.Samples.Geospatial;
 public class GeoSpatialControllerWithPlayback : MonoBehaviour
 {
 	[Header("AR Components")]
-
-	/// <summary>
-	/// The ARSessionOrigin used in the sample.
-	/// </summary>
-	public ARSessionOrigin SessionOrigin;
-
-	/// <summary>
-	/// The ARSession used in the sample.
-	/// </summary>
-	public ARSession Session;
-
-	/// <summary>
-	/// The ARAnchorManager used in the sample.
-	/// </summary>
-	public ARAnchorManager AnchorManager;
-
-	/// <summary>
-	/// The AREarthManager used in the sample.
-	/// </summary>
-	public AREarthManager EarthManager;
-
-	/// <summary>
-	/// The ARCoreExtensions used in the sample.
-	/// </summary>
-	public ARCoreExtensions ARCoreExtensions;
+	[SerializeField] private ARSessionOrigin SessionOrigin; // The ARSessionOrigin used in the sample.
+	[SerializeField] private ARSession Session; // The ARSession used in the sample.
+	[SerializeField] private ARAnchorManager AnchorManager; // The ARAnchorManager used in the sample.
+	[SerializeField] private AREarthManager EarthManager; // The AREarthManager used in the sample.
+	[SerializeField] private ARCoreExtensions ARCoreExtensions; // The ARCoreExtensions used in the sample.
 
 	[Header("UI Elements")]
+	[SerializeField] private Button GetStartedButton;
+	[SerializeField] private Button LearnMoreButton;
+	[SerializeField] private Button ClearAllButton; // UI element for clearing all anchors, including history.
+	[SerializeField] private Button SetAnchorButton; // UI element for adding a new anchor at current location.
+	[SerializeField] private GameObject GeospatialPrefab; // A 3D object that presents an Geospatial Anchor.
+	[SerializeField] private GameObject PrivacyPromptCanvas; // UI element showing privacy prompt.
+	[SerializeField] private GameObject ARViewCanvas; // UI element containing all AR view contents.
+	[SerializeField] private GameObject InfoPanel; // UI element to display information at runtime.
+	[SerializeField] private Text InfoText; // Text displaying <see cref="GeospatialPose"/> information at runtime.
+	[SerializeField] private Text SnackBarText; // Text displaying in a snack bar at the bottom of the screen.
+	[SerializeField] private Text DebugText; // Text displaying debug information, only activated in debug build.
 
-	/// <summary>
-	/// A 3D object that presents an Geospatial Anchor.
-	/// </summary>
-	public GameObject GeospatialPrefab;
-
-	/// <summary>
-	/// UI element showing privacy prompt.
-	/// </summary>
-	public GameObject PrivacyPromptCanvas;
-
-	/// <summary>
-	/// UI element containing all AR view contents.
-	/// </summary>
-	public GameObject ARViewCanvas;
-
-	/// <summary>
-	/// UI element for clearing all anchors, including history.
-	/// </summary>
-	public Button ClearAllButton;
-
-	/// <summary>
-	/// UI element for adding a new anchor at current location.
-	/// </summary>
-	public Button SetAnchorButton;
-
-	/// <summary>
-	/// UI element to display information at runtime.
-	/// </summary>
-	public GameObject InfoPanel;
-
-	/// <summary>
-	/// Text displaying <see cref="GeospatialPose"/> information at runtime.
-	/// </summary>
-	public Text InfoText;
-
-	/// <summary>
-	/// Text displaying in a snack bar at the bottom of the screen.
-	/// </summary>
-	public Text SnackBarText;
-
-	/// <summary>
-	/// Text displaying debug information, only activated in debug build.
-	/// </summary>
-	public Text DebugText;
-
-	/// <summary>
-	/// Help message shows while localizing.
-	/// </summary>
-	private const string _localizingMessage = "Localizing your device to set anchor.";
+	// Help message shows while localizing.
+	private const string LocalizingMessage = "Localizing your device to set anchor.";
 
 	/// <summary>
 	/// Help message shows when <see cref="AREarthManager.EarthTrackingState"/> is not tracking
 	/// or the pose accuracies are beyond thresholds.
 	/// </summary>
-	private const string _localizationInstructionMessage =
+	private const string LocalizationInstructionMessage =
 		"Point your camera at buildings, stores, and signs near you.";
 
-	/// <summary>
-	/// Help message shows when location fails or hits timeout.
-	/// </summary>
-	private const string _localizationFailureMessage =
+	// Help message shows when location fails or hits timeout.
+	private const string LocalizationFailureMessage =
 		"Localization not possible.\n" +
 		"Close and open the app to restart the session.";
 
-	/// <summary>
-	/// Help message shows when location success.
-	/// </summary>
-	private const string _localizationSuccessMessage = "Localization completed.";
+	// Help message shows when location success.
+	private const string LocalizationSuccessMessage = "Localization completed.";
 
-	/// <summary>
-	/// The timeout period waiting for localization to be completed.
-	/// </summary>
-	private const float _timeoutSeconds = 180;
+	// The timeout period waiting for localization to be completed.
+	private const float TimeoutSeconds = 180;
 
-	/// <summary>
-	/// Indicates how long a information text will display on the screen before terminating.
-	/// </summary>
-	private const float _errorDisplaySeconds = 3;
+	// Indicates how long a information text will display on the screen before terminating.
+	private const float ErrorDisplaySeconds = 3;
 
-	/// <summary>
-	/// The key name used in PlayerPrefs which indicates whether the privacy prompt has
-	/// displayed at least one time.
-	/// </summary>
-	private const string _hasDisplayedPrivacyPromptKey = "HasDisplayedGeospatialPrivacyPrompt";
+	// The key name used in PlayerPrefs which indicates whether the privacy prompt has
+	// displayed at least one time.
+	private const string HasDisplayedPrivacyPromptKey = "HasDisplayedGeospatialPrivacyPrompt";
 
-	/// <summary>
-	/// The key name used in PlayerPrefs which stores geospatial anchor history data.
-	/// The earliest one will be deleted once it hits storage limit.
-	/// </summary>
-	private const string _persistentGeospatialAnchorsStorageKey = "PersistentGeospatialAnchors";
+	// The key name used in PlayerPrefs which stores geospatial anchor history data.
+	// The earliest one will be deleted once it hits storage limit.
+	private const string PersistentGeospatialAnchorsStorageKey = "PersistentGeospatialAnchors";
 
-	/// <summary>
-	/// The limitation of how many Geospatial Anchors can be stored in local storage.
-	/// </summary>
-	private const int _storageLimit = 5;
+	// The limitation of how many Geospatial Anchors can be stored in local storage.
+	private const int StorageLimit = 5;
 
-	/// <summary>
-	/// Accuracy threshold for heading degree that can be treated as localization completed.
-	/// </summary>
-	private const double _headingAccuracyThreshold = 25;
+	// Accuracy threshold for heading degree that can be treated as localization completed.
+	private const double HeadingAccuracyThreshold = 25;
 
-	/// <summary>
-	/// Accuracy threshold for altitude and longitude that can be treated as localization
-	/// completed.
-	/// </summary>
-	private const double _horizontalAccuracyThreshold = 20;
+	// Accuracy threshold for altitude and longitude that can be treated as localization completed.
+	private const double HorizontalAccuracyThreshold = 20;
 
-	private bool _isInARView = false;
-	private bool _isReturning = false;
-	private bool _isLocalizing = false;
-	private bool _enablingGeospatial = false;
-	private bool _shouldResolvingHistory = false;
-	private float _localizationPassedTime = 0f;
-	private float _configurePrepareTime = 3f;
-	private GeospatialAnchorHistoryCollection _historyCollection = null;
-	private List<GameObject> _anchorObjects = new List<GameObject>();
+	private bool m_IsInARView = false;
+	private bool m_IsReturning = false;
+	private bool m_IsLocalizing = false;
+	private bool m_EnablingGeospatial = false;
+	private bool m_ShouldResolvingHistory = false;
+	private float m_LocalizationPassedTime = 0f;
+	private float m_ConfigurePrepareTime = 3f;
+	private GeospatialAnchorHistoryCollection m_HistoryCollection = null;
+	private List<GameObject> m_AnchorObjects = new List<GameObject>();
 
-	/// <summary>
-	/// Callback handling "Get Started" button click event in Privacy Prompt.
-	/// </summary>
-	public void OnGetStartedClicked()
-	{
-		PlayerPrefs.SetInt(_hasDisplayedPrivacyPromptKey, 1);
-		PlayerPrefs.Save();
-		SwitchToARView(true);
-	}
-
-	/// <summary>
-	/// Callback handling "Learn More" Button click event in Privacy Prompt.
-	/// </summary>
-	public void OnLearnMoreClicked()
-	{
-		Application.OpenURL(
-			"https://developers.google.com/ar/data-privacy");
-	}
-
-	/// <summary>
-	/// Callback handling "Clear All" button click event in AR View.
-	/// </summary>
-	public void OnClearAllClicked()
-	{
-		foreach (var anchor in _anchorObjects)
-		{
-			Destroy(anchor);
-		}
-
-		_anchorObjects.Clear();
-		_historyCollection.Collection.Clear();
-		SnackBarText.text = "Anchor(s) cleared!";
-		ClearAllButton.gameObject.SetActive(false);
-		SaveGeospatialAnchorHistory();
-	}
-
-	/// <summary>
-	/// Callback handling "Set Anchor" button click event in AR View.
-	/// </summary>
-	public void OnSetAnchorClicked()
-	{
-		var pose = EarthManager.CameraGeospatialPose;
-		GeospatialAnchorHistory history = new GeospatialAnchorHistory(
-			pose.Latitude, pose.Longitude, pose.Altitude, pose.Heading);
-		if (PlaceGeospatialAnchor(history))
-		{
-			_historyCollection.Collection.Add(history);
-			SnackBarText.text = $"{_anchorObjects.Count} Anchor(s) Set!";
-		}
-		else
-		{
-			SnackBarText.text = "Failed to set an anchor!";
-		}
-
-		ClearAllButton.gameObject.SetActive(_historyCollection.Collection.Count > 0);
-		SaveGeospatialAnchorHistory();
-	}
-
-	/// <summary>
-	/// Unity's Awake() method.
-	/// </summary>
-	public void Awake()
+	private void Awake()
 	{
 		// Lock screen to portrait.
 		Screen.autorotateToLandscapeLeft = false;
@@ -246,58 +111,55 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 		{
 			Debug.LogError("Cannot find ARCoreExtensions.");
 		}
+
+		// Set OnClick
+		GetStartedButton.onClick.AddListener(OnGetStartedClicked);
+		LearnMoreButton.onClick.AddListener(OnLearnMoreClicked);
+		ClearAllButton.onClick.AddListener(OnClearAllClicked);
+		SetAnchorButton.onClick.AddListener(OnSetAnchorClicked);
 	}
 
-	/// <summary>
-	/// Unity's OnEnable() method.
-	/// </summary>
-	public void OnEnable()
+	private void OnEnable()
 	{
-		SwitchToARView(PlayerPrefs.HasKey(_hasDisplayedPrivacyPromptKey));
+		SwitchToARView(PlayerPrefs.HasKey(HasDisplayedPrivacyPromptKey));
 
-		_isReturning = false;
-		_enablingGeospatial = false;
+		m_IsReturning = false;
+		m_EnablingGeospatial = false;
 		InfoPanel.SetActive(false);
 		SetAnchorButton.gameObject.SetActive(false);
 		ClearAllButton.gameObject.SetActive(false);
 		DebugText.gameObject.SetActive(Debug.isDebugBuild && EarthManager != null);
 
-		_localizationPassedTime = 0f;
-		_isLocalizing = true;
-		SnackBarText.text = _localizingMessage;
+		m_LocalizationPassedTime = 0f;
+		m_IsLocalizing = true;
+		SnackBarText.text = LocalizingMessage;
 
 #if UNITY_IOS
 		Debug.Log("Start location services.");
 		Input.location.Start();
 #endif
 		LoadGeospatialAnchorHistory();
-		_shouldResolvingHistory = _historyCollection.Collection.Count > 0;
+		m_ShouldResolvingHistory = m_HistoryCollection.Collection.Count > 0;
 	}
 
-	/// <summary>
-	/// Unity's OnDisable() method.
-	/// </summary>
-	public void OnDisable()
+	private void OnDisable()
 	{
 #if UNITY_IOS
 		Debug.Log("Stop location services.");
 		Input.location.Stop();
 #endif
-		foreach (var anchor in _anchorObjects)
+		foreach (var anchor in m_AnchorObjects)
 		{
 			Destroy(anchor);
 		}
 
-		_anchorObjects.Clear();
+		m_AnchorObjects.Clear();
 		SaveGeospatialAnchorHistory();
 	}
 
-	/// <summary>
-	/// Unity's Update() method.
-	/// </summary>
-	public void Update()
+	private void Update()
 	{
-		if (!_isInARView)
+		if (!m_IsInARView)
 		{
 			return;
 		}
@@ -306,7 +168,7 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 
 		// Check session error status.
 		LifecycleUpdate();
-		if (_isReturning)
+		if (m_IsReturning)
 		{
 			return;
 		}
@@ -324,7 +186,7 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 			case FeatureSupported.Unknown:
 				return;
 			case FeatureSupported.Unsupported:
-				ReturnWithReason("Geospatial API is not supported by this devices.");
+				QuitAppWithReasonAsync("Geospatial API is not supported by this devices.").Forget();
 				return;
 			case FeatureSupported.Supported:
 				if (ARCoreExtensions.ARCoreExtensionsConfig.GeospatialMode ==
@@ -333,21 +195,20 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 					Debug.Log("Geospatial sample switched to GeospatialMode.Enabled.");
 					ARCoreExtensions.ARCoreExtensionsConfig.GeospatialMode =
 						GeospatialMode.Enabled;
-					_configurePrepareTime = 3.0f;
-					_enablingGeospatial = true;
+					m_ConfigurePrepareTime = 3.0f;
+					m_EnablingGeospatial = true;
 					return;
 				}
-
 				break;
 		}
 
 		// Waiting for new configuration taking effect.
-		if (_enablingGeospatial)
+		if (m_EnablingGeospatial)
 		{
-			_configurePrepareTime -= Time.deltaTime;
-			if (_configurePrepareTime < 0)
+			m_ConfigurePrepareTime -= Time.deltaTime;
+			if (m_ConfigurePrepareTime < 0)
 			{
-				_enablingGeospatial = false;
+				m_EnablingGeospatial = false;
 			}
 			else
 			{
@@ -359,8 +220,7 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 		var earthState = EarthManager.EarthState;
 		if (earthState != EarthState.Enabled)
 		{
-			ReturnWithReason(
-				"Geospatial sample encountered an EarthState error: " + earthState);
+			QuitAppWithReasonAsync($"Geospatial sample encountered an EarthState error: {earthState}").Forget();
 			return;
 		}
 
@@ -375,42 +235,42 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 		var pose = earthTrackingState == TrackingState.Tracking ?
 			EarthManager.CameraGeospatialPose : new GeospatialPose();
 		if (!isSessionReady || earthTrackingState != TrackingState.Tracking ||
-			pose.HeadingAccuracy > _headingAccuracyThreshold ||
-			pose.HorizontalAccuracy > _horizontalAccuracyThreshold)
+			pose.HeadingAccuracy > HeadingAccuracyThreshold ||
+			pose.HorizontalAccuracy > HorizontalAccuracyThreshold)
 		{
 			// Lost localization during the session.
-			if (!_isLocalizing)
+			if (!m_IsLocalizing)
 			{
-				_isLocalizing = true;
-				_localizationPassedTime = 0f;
+				m_IsLocalizing = true;
+				m_LocalizationPassedTime = 0f;
 				SetAnchorButton.gameObject.SetActive(false);
 				ClearAllButton.gameObject.SetActive(false);
-				foreach (var go in _anchorObjects)
+				foreach (var go in m_AnchorObjects)
 				{
 					go.SetActive(false);
 				}
 			}
 
-			if (_localizationPassedTime > _timeoutSeconds)
+			if (m_LocalizationPassedTime > TimeoutSeconds)
 			{
 				Debug.LogError("Geospatial sample localization passed timeout.");
-				ReturnWithReason(_localizationFailureMessage);
+				QuitAppWithReasonAsync(LocalizationFailureMessage).Forget();
 			}
 			else
 			{
-				_localizationPassedTime += Time.deltaTime;
-				SnackBarText.text = _localizationInstructionMessage;
+				m_LocalizationPassedTime += Time.deltaTime;
+				SnackBarText.text = LocalizationInstructionMessage;
 			}
 		}
-		else if (_isLocalizing)
+		else if (m_IsLocalizing)
 		{
 			// Finished localization.
-			_isLocalizing = false;
-			_localizationPassedTime = 0f;
+			m_IsLocalizing = false;
+			m_LocalizationPassedTime = 0f;
 			SetAnchorButton.gameObject.SetActive(true);
-			ClearAllButton.gameObject.SetActive(_anchorObjects.Count > 0);
-			SnackBarText.text = _localizationSuccessMessage;
-			foreach (var go in _anchorObjects)
+			ClearAllButton.gameObject.SetActive(m_AnchorObjects.Count > 0);
+			SnackBarText.text = LocalizationSuccessMessage;
+			foreach (var go in m_AnchorObjects)
 			{
 				go.SetActive(true);
 			}
@@ -421,27 +281,77 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 		InfoPanel.SetActive(true);
 		if (earthTrackingState == TrackingState.Tracking)
 		{
-			InfoText.text = string.Format(
-			"Latitude/Longitude: {1}°, {2}°{0}" +
-			"Horizontal Accuracy: {3}m{0}" +
-			"Altitude: {4}m{0}" +
-			"Vertical Accuracy: {5}m{0}" +
-			"Heading: {6}°{0}" +
-			"Heading Accuracy: {7}°",
-			Environment.NewLine,
-			pose.Latitude.ToString("F6"),
-			pose.Longitude.ToString("F6"),
-			pose.HorizontalAccuracy.ToString("F6"),
-			pose.Altitude.ToString("F2"),
-			pose.VerticalAccuracy.ToString("F2"),
-			pose.Heading.ToString("F1"),
-			pose.HeadingAccuracy.ToString("F1"));
+			var sb = new System.Text.StringBuilder();
+			sb.AppendFormat("Latitude/Longitude: {0}°, {1}°", pose.Latitude.ToString("F6"), pose.Longitude.ToString("F6"));
+			sb.AppendLine();
+			sb.AppendFormat("Horizontal Accuracy: {0}m", pose.HorizontalAccuracy.ToString("F6"));
+			sb.AppendLine();
+			sb.AppendFormat("Altitude: {0}m", pose.Altitude.ToString("F2"));
+			sb.AppendLine();
+			sb.AppendFormat("Vertical Accuracy: {0}m", pose.VerticalAccuracy.ToString("F2"));
+			sb.AppendLine();
+			sb.AppendFormat("Heading: {0}°", pose.Heading.ToString("F1"));
+			sb.AppendLine();
+			sb.AppendFormat("Heading Accuracy: {0}°", pose.HeadingAccuracy.ToString("F1"));
+			sb.AppendLine();
+			InfoText.text = sb.ToString();
 		}
 		else
 		{
 			InfoText.text = "GEOSPATIAL POSE: not tracking";
 		}
 	}
+
+	#region On click method
+	// Callback handling "Get Started" button click event in Privacy Prompt.
+	private void OnGetStartedClicked()
+	{
+		PlayerPrefs.SetInt(HasDisplayedPrivacyPromptKey, 1);
+		PlayerPrefs.Save();
+		SwitchToARView(true);
+	}
+
+	// Callback handling "Learn More" Button click event in Privacy Prompt.
+	private void OnLearnMoreClicked()
+	{
+		Application.OpenURL("https://developers.google.com/ar/data-privacy");
+	}
+
+	// Callback handling "Clear All" button click event in AR View.
+	private void OnClearAllClicked()
+	{
+		foreach (var anchor in m_AnchorObjects)
+		{
+			Destroy(anchor);
+		}
+
+		m_AnchorObjects.Clear();
+		m_HistoryCollection.Collection.Clear();
+		SnackBarText.text = "Anchor(s) cleared!";
+		ClearAllButton.gameObject.SetActive(false);
+		SaveGeospatialAnchorHistory();
+	}
+
+	// Callback handling "Set Anchor" button click event in AR View.
+	private void OnSetAnchorClicked()
+	{
+		var pose = EarthManager.CameraGeospatialPose;
+		GeospatialAnchorHistory history = new GeospatialAnchorHistory(
+			pose.Latitude, pose.Longitude, pose.Altitude, pose.Heading);
+		if (PlaceGeospatialAnchor(history))
+		{
+			m_HistoryCollection.Collection.Add(history);
+			SnackBarText.text = $"{m_AnchorObjects.Count} Anchor(s) Set!";
+		}
+		else
+		{
+			SnackBarText.text = "Failed to set an anchor!";
+		}
+
+		ClearAllButton.gameObject.SetActive(m_HistoryCollection.Collection.Count > 0);
+		SaveGeospatialAnchorHistory();
+	}
+	#endregion // On click method
 
 	private bool PlaceGeospatialAnchor(GeospatialAnchorHistory history)
 	{
@@ -452,7 +362,7 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 		if (anchor != null)
 		{
 			GameObject anchorGO = Instantiate(GeospatialPrefab, anchor.transform);
-			_anchorObjects.Add(anchorGO);
+			m_AnchorObjects.Add(anchorGO);
 			return true;
 		}
 
@@ -461,64 +371,64 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 
 	private void ResolveHistory()
 	{
-		if (!_shouldResolvingHistory)
+		if (!m_ShouldResolvingHistory)
 		{
 			return;
 		}
 
-		_shouldResolvingHistory = false;
-		foreach (var history in _historyCollection.Collection)
+		m_ShouldResolvingHistory = false;
+		foreach (var history in m_HistoryCollection.Collection)
 		{
 			PlaceGeospatialAnchor(history);
 		}
 
-		ClearAllButton.gameObject.SetActive(_historyCollection.Collection.Count > 0);
+		ClearAllButton.gameObject.SetActive(m_HistoryCollection.Collection.Count > 0);
 		SnackBarText.text = string.Format("{0} anchor(s) set from history.",
-			_anchorObjects.Count);
+			m_AnchorObjects.Count);
 	}
 
 	private void LoadGeospatialAnchorHistory()
 	{
-		if (PlayerPrefs.HasKey(_persistentGeospatialAnchorsStorageKey))
+		if (PlayerPrefs.HasKey(PersistentGeospatialAnchorsStorageKey))
 		{
-			_historyCollection = JsonUtility.FromJson<GeospatialAnchorHistoryCollection>(
-				PlayerPrefs.GetString(_persistentGeospatialAnchorsStorageKey));
+			m_HistoryCollection = JsonUtility.FromJson<GeospatialAnchorHistoryCollection>(
+				PlayerPrefs.GetString(PersistentGeospatialAnchorsStorageKey));
 
 			// Remove all records created more than 24 hours and update stored history.
 			DateTime current = DateTime.Now;
-			_historyCollection.Collection.RemoveAll(
+			m_HistoryCollection.Collection.RemoveAll(
 				data => current.Subtract(data.CreatedTime).Days > 0);
-			PlayerPrefs.SetString(_persistentGeospatialAnchorsStorageKey,
-				JsonUtility.ToJson(_historyCollection));
+			PlayerPrefs.SetString(PersistentGeospatialAnchorsStorageKey,
+				JsonUtility.ToJson(m_HistoryCollection));
 			PlayerPrefs.Save();
 		}
 		else
 		{
-			_historyCollection = new GeospatialAnchorHistoryCollection();
+			m_HistoryCollection = new GeospatialAnchorHistoryCollection();
 		}
 	}
 
 	private void SaveGeospatialAnchorHistory()
 	{
 		// Sort the data from latest record to earliest record.
-		_historyCollection.Collection.Sort((left, right) =>
+		m_HistoryCollection.Collection.Sort((left, right) =>
 			right.CreatedTime.CompareTo(left.CreatedTime));
 
 		// Remove the earliest data if the capacity exceeds storage limit.
-		if (_historyCollection.Collection.Count > _storageLimit)
+		if (m_HistoryCollection.Collection.Count > StorageLimit)
 		{
-			_historyCollection.Collection.RemoveRange(
-				_storageLimit, _historyCollection.Collection.Count - _storageLimit);
+			m_HistoryCollection.Collection.RemoveRange(
+				StorageLimit, m_HistoryCollection.Collection.Count - StorageLimit);
 		}
 
 		PlayerPrefs.SetString(
-			_persistentGeospatialAnchorsStorageKey, JsonUtility.ToJson(_historyCollection));
+			PersistentGeospatialAnchorsStorageKey, JsonUtility.ToJson(m_HistoryCollection));
 		PlayerPrefs.Save();
 	}
 
 	private void SwitchToARView(bool enable)
 	{
-		_isInARView = enable;
+		m_IsInARView = enable;
 		SessionOrigin.gameObject.SetActive(enable);
 		Session.gameObject.SetActive(enable);
 		ARCoreExtensions.gameObject.SetActive(enable);
@@ -534,7 +444,7 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 			Application.Quit();
 		}
 
-		if (_isReturning)
+		if (m_IsReturning)
 		{
 			return;
 		}
@@ -574,10 +484,10 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 				"Geospatial sample failed with missing AR Components.");
 		}
 
-		ReturnWithReason(returningReason);
+		QuitAppWithReasonAsync(returningReason).Forget();
 	}
 
-	private void ReturnWithReason(string reason)
+	private async UniTask QuitAppWithReasonAsync(string reason)
 	{
 		if (string.IsNullOrEmpty(reason))
 		{
@@ -590,12 +500,8 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 
 		Debug.LogError(reason);
 		SnackBarText.text = reason;
-		_isReturning = true;
-		Invoke(nameof(QuitApplication), _errorDisplaySeconds);
-	}
-
-	private void QuitApplication()
-	{
+		m_IsReturning = true;
+		await UniTask.Delay((int)ErrorDisplaySeconds * 1000);
 		Application.Quit();
 	}
 
@@ -610,20 +516,22 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 			EarthManager.EarthTrackingState == TrackingState.Tracking ?
 			EarthManager.CameraGeospatialPose : new GeospatialPose();
 		var supported = EarthManager.IsGeospatialModeSupported(GeospatialMode.Enabled);
-		DebugText.text =
-			$"IsReturning: {_isReturning}\n" +
-			$"IsLocalizing: {_isLocalizing}\n" +
-			$"SessionState: {ARSession.state}\n" +
-			$"LocationServiceStatus: {Input.location.status}\n" +
-			$"FeatureSupported: {supported}\n" +
-			$"EarthState: {EarthManager.EarthState}\n" +
-			$"EarthTrackingState: {EarthManager.EarthTrackingState}\n" +
-			$"  LAT/LNG: {pose.Latitude:F6}, {pose.Longitude:F6}\n" +
-			$"  HorizontalAcc: {pose.HorizontalAccuracy:F6}\n" +
-			$"  ALT: {pose.Altitude:F2}\n" +
-			$"  VerticalAcc: {pose.VerticalAccuracy:F2}\n" +
-			$"  Heading: {pose.Heading:F2}\n" +
-			$"  HeadingAcc: {pose.HeadingAccuracy:F2}";
+		var sb = new System.Text.StringBuilder();
+		sb.Append($"IsReturning: {m_IsReturning}"); sb.AppendLine();
+		sb.Append($"IsLocalizing: {m_IsLocalizing}\n"); sb.AppendLine();
+		sb.Append($"SessionState: {ARSession.state}\n"); sb.AppendLine();
+		sb.Append($"LocationServiceStatus: {Input.location.status}\n"); sb.AppendLine();
+		sb.Append($"FeatureSupported: {supported}\n"); sb.AppendLine();
+		sb.Append($"EarthState: {EarthManager.EarthState}\n"); sb.AppendLine();
+		sb.Append($"EarthTrackingState: {EarthManager.EarthTrackingState}\n"); sb.AppendLine();
+		sb.Append($"  LAT/LNG: {pose.Latitude:F6}, {pose.Longitude:F6}\n"); sb.AppendLine();
+		sb.Append($"  HorizontalAcc: {pose.HorizontalAccuracy:F6}\n"); sb.AppendLine();
+		sb.Append($"  ALT: {pose.Altitude:F2}\n"); sb.AppendLine();
+		sb.Append($"  VerticalAcc: {pose.VerticalAccuracy:F2}\n"); sb.AppendLine();
+		sb.Append($"  Heading: {pose.Heading:F2}\n"); sb.AppendLine();
+		sb.Append($"  HeadingAcc: {pose.HeadingAccuracy:F2}"); sb.AppendLine();
+
+		DebugText.text = sb.ToString();
 	}
 }
 
