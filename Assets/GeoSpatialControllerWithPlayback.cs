@@ -82,7 +82,7 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 	private float m_LocalizationPassedTime = 0f;
 	private float m_ConfigurePrepareTime = 3f;
 	private GeospatialAnchorHistoryCollection m_HistoryCollection = null;
-	private List<GameObject> m_AnchorObjects = new List<GameObject>();
+	private List<GameObject> m_AnchorObjects = new();
 
 	private void Awake()
 	{
@@ -189,12 +189,10 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 				QuitAppWithReasonAsync("Geospatial API is not supported by this devices.").Forget();
 				return;
 			case FeatureSupported.Supported:
-				if (ARCoreExtensions.ARCoreExtensionsConfig.GeospatialMode ==
-					GeospatialMode.Disabled)
+				if (ARCoreExtensions.ARCoreExtensionsConfig.GeospatialMode == GeospatialMode.Disabled)
 				{
 					Debug.Log("Geospatial sample switched to GeospatialMode.Enabled.");
-					ARCoreExtensions.ARCoreExtensionsConfig.GeospatialMode =
-						GeospatialMode.Enabled;
+					ARCoreExtensions.ARCoreExtensionsConfig.GeospatialMode = GeospatialMode.Enabled;
 					m_ConfigurePrepareTime = 3.0f;
 					m_EnablingGeospatial = true;
 					return;
@@ -232,8 +230,8 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 		bool isSessionReady = ARSession.state == ARSessionState.SessionTracking;
 #endif
 		var earthTrackingState = EarthManager.EarthTrackingState;
-		var pose = earthTrackingState == TrackingState.Tracking ?
-			EarthManager.CameraGeospatialPose : new GeospatialPose();
+		var pose = earthTrackingState == TrackingState.Tracking ? EarthManager.CameraGeospatialPose : new GeospatialPose();
+
 		if (!isSessionReady || earthTrackingState != TrackingState.Tracking ||
 			pose.HeadingAccuracy > HeadingAccuracyThreshold ||
 			pose.HorizontalAccuracy > HorizontalAccuracyThreshold)
@@ -336,8 +334,7 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 	private void OnSetAnchorClicked()
 	{
 		var pose = EarthManager.CameraGeospatialPose;
-		GeospatialAnchorHistory history = new GeospatialAnchorHistory(
-			pose.Latitude, pose.Longitude, pose.Altitude, pose.Heading);
+		GeospatialAnchorHistory history = new(pose.Latitude, pose.Longitude, pose.Altitude, pose.Heading);
 		if (PlaceGeospatialAnchor(history))
 		{
 			m_HistoryCollection.Collection.Add(history);
@@ -355,8 +352,7 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 
 	private bool PlaceGeospatialAnchor(GeospatialAnchorHistory history)
 	{
-		Quaternion quaternion =
-			Quaternion.AngleAxis(180f - (float)history.Heading, Vector3.up);
+		Quaternion quaternion = Quaternion.AngleAxis(180f - (float)history.Heading, Vector3.up);
 		var anchor = AnchorManager.AddAnchor(
 			history.Latitude, history.Longitude, history.Altitude, quaternion);
 		if (anchor != null)
@@ -480,8 +476,7 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 #endif
 		else if (SessionOrigin == null || Session == null || ARCoreExtensions == null)
 		{
-			returningReason = string.Format(
-				"Geospatial sample failed with missing AR Components.");
+			returningReason = string.Format("Geospatial sample failed with missing AR Components.");
 		}
 
 		QuitAppWithReasonAsync(returningReason).Forget();
@@ -501,8 +496,9 @@ public class GeoSpatialControllerWithPlayback : MonoBehaviour
 		Debug.LogError(reason);
 		SnackBarText.text = reason;
 		m_IsReturning = true;
-		await UniTask.Delay((int)ErrorDisplaySeconds * 1000);
-		Application.Quit();
+		// MARK: すぐに終了を防ぐためのアドホックな対応
+		// await UniTask.Delay((int)ErrorDisplaySeconds * 1000);
+		// Application.Quit();
 	}
 
 	private void UpdateDebugInfo()
