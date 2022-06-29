@@ -5,9 +5,9 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
-    path: Assets/Samples/ARCore Extensions/1.31.0/Geospatial Sample/Scenes/Geospatial.unity
-    guid: 1ed15e9657253406185e4b2c7c5a4fc4
+  - enabled: 0
+    path: Assets/Scenes/GeoSpatialWithPlayback.unity
+    guid: 98117a6d575459d49b4e1b5639b90717
   m_configObjects:
     UnityEditor.XR.ARCore.ARCoreSettings: {fileID: 11400000, guid: ae8562b44a372794d95f88dd35fe9108,
       type: 2}

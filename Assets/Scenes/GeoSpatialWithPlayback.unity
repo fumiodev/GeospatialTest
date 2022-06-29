@@ -292,6 +292,7 @@ GameObject:
   - component: {fileID: 193207848}
   - component: {fileID: 193207847}
   - component: {fileID: 193207846}
+  - component: {fileID: 193207849}
   m_Layer: 0
   m_Name: AR Session
   m_TagString: Untagged
@@ -341,6 +342,18 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &193207849
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 193207845}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6359bfb6fc9d24ee2bd78491ee3d2fa2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &384014290
 GameObject:
   m_ObjectHideFlags: 0
@@ -351,6 +364,9 @@ GameObject:
   m_Component:
   - component: {fileID: 384014292}
   - component: {fileID: 384014293}
+  - component: {fileID: 384014294}
+  - component: {fileID: 384014295}
+  - component: {fileID: 384014296}
   m_Layer: 0
   m_Name: GeospatialController
   m_TagString: Untagged
@@ -398,6 +414,64 @@ MonoBehaviour:
     type: 3}
   PrivacyPromptCanvas: {fileID: 782365343}
   ARViewCanvas: {fileID: 1041456683}
+  InfoPanel: {fileID: 430750537}
+  InfoText: {fileID: 1587000028}
+  SnackBarText: {fileID: 1382347801}
+  DebugText: {fileID: 1664493018}
+--- !u!114 &384014294
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 384014290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c2da6a1dc027c014f9f737a5e049207c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_ArSession: {fileID: 193207847}
+  m_RecUI: {fileID: 384014295}
+--- !u!114 &384014295
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 384014290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_PanelSettings: {fileID: 11400000, guid: c585549a5f43770459a47b587486a5ac, type: 2}
+  m_ParentUI: {fileID: 0}
+  sourceAsset: {fileID: 9197481963319205126, guid: 40311f4fefff8964fa682f12e14bf443,
+    type: 3}
+  m_SortingOrder: 0
+--- !u!114 &384014296
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 384014290}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75a1114bd37d249b08c83cfbaf234679, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SessionOrigin: {fileID: 691323908}
+  Session: {fileID: 193207847}
+  AnchorManager: {fileID: 691323910}
+  EarthManager: {fileID: 691323912}
+  ARCoreExtensions: {fileID: 1476232295}
+  GeospatialPrefab: {fileID: 5831908950388203684, guid: f09a13e3d47394ab588884ffd124d732,
+    type: 3}
+  PrivacyPromptCanvas: {fileID: 782365343}
+  ARViewCanvas: {fileID: 1041456683}
+  ClearAllButton: {fileID: 823877495}
+  SetAnchorButton: {fileID: 1803953558}
   InfoPanel: {fileID: 430750537}
   InfoText: {fileID: 1587000028}
   SnackBarText: {fileID: 1382347801}
@@ -1872,7 +1946,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1476232295
 MonoBehaviour:
   m_ObjectHideFlags: 0
